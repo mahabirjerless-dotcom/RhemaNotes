@@ -1,10 +1,11 @@
 name = "rhemanotes"
 main = "worker/seo-worker.ts"
+compatibility_date = "2024-01-01"
+workers_dev = true
+
 [assets]
 directory = "./dist"
 binding = "ASSETS"
-compatibility_date = "2024-01-01"
-workers_dev = true
 
 [build]
 command = "npm run build"
