@@ -52,62 +52,70 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // 1. Handle robots.txt
-    if (path === '/robots.txt') {
-      return new Response(generateRobotsTxt(), {
-        headers: { 'content-type': 'text/plain' },
-      });
+    // 1. Handle API Routes (Database)
+    if (path.startsWith('/api/sermons')) {
+      return handleSermonsAPI(request, env);
     }
 
-    // 2. Handle sitemap.xml
-    if (path === '/sitemap.xml') {
-      const sitemap = await generateSitemap(env);
-      return new Response(sitemap, {
-        headers: { 'content-type': 'application/xml' },
-      });
+    // 2. Handle robots.txt & sitemap
+    if (path === '/robots.txt') return new Response(generateRobotsTxt(), { headers: { 'content-type': 'text/plain' } });
+    if (path === '/sitemap.xml') return new Response(await generateSitemap(env), { headers: { 'content-type': 'application/xml' } });
+
+    // 3. Serve static assets (JS, CSS, Images, Icons)
+    // If the request is for a file that exists in the build, serve it directly
+    try {
+      const asset = await env.ASSETS.fetch(request);
+      if (asset.ok || isAssetRequest(path)) {
+        return asset;
+      }
+    } catch (e) {
+      console.error('Asset fetch error:', e);
     }
 
-    // 3. Pass through non-HTML requests (JS, CSS, images, fonts) unchanged
-    if (isAssetRequest(path)) {
-      return env.ASSETS.fetch(request);
-    }
+    // 4. Fetch the base index.html for SPA routing + SEO injection
+    const assetResponse = await env.ASSETS.fetch(new Request(`${url.origin}/index.html`));
+    if (!assetResponse.ok) return assetResponse;
 
-    // 4. Fetch the base index.html from static assets
-    const assetResponse = await env.ASSETS.fetch(
-      new Request(`${url.origin}/index.html`, request),
-    );
-
-    if (!assetResponse.ok) {
-      return assetResponse;
-    }
-
-    // 5. Build the correct meta block for this route
     const metaHTML = await resolveMetaHTML(path, env);
 
-    // 6. Inject meta tags into <head> using HTMLRewriter
-    // We remove existing title and meta tags to avoid duplication
     return new HTMLRewriter()
       .on('title', { element: (el) => el.remove() })
       .on('meta', {
         element: (el) => {
           const name = el.getAttribute('name');
           const prop = el.getAttribute('property');
-          // Remove tags we're about to replace
-          if (
-            ['description', 'keywords', 'author', 'robots', 'twitter:card', 'twitter:site', 'twitter:title', 'twitter:description', 'twitter:image'].includes(name || '') ||
-            (prop && prop.startsWith('og:')) ||
-            (prop && prop.startsWith('article:'))
-          ) {
-            el.remove();
-          }
+          if (['description', 'keywords', 'og:title', 'og:description'].includes(name || prop || '')) el.remove();
         }
       })
-      .on('link[rel="canonical"]', { element: (el) => el.remove() })
-      .on('script[type="application/ld+json"]', { element: (el) => el.remove() })
       .on('head', new MetaInjector(metaHTML))
       .transform(assetResponse);
   },
 };
+
+// ── API Handler ──────────────────────────────────────────────────────────────
+
+async function handleSermonsAPI(request: Request, env: Env): Promise<Response> {
+  if (!env.DB) return new Response('Database not bound', { status: 500 });
+
+  try {
+    if (request.method === 'GET') {
+      const { results } = await env.DB.prepare('SELECT * FROM sermons ORDER BY timestamp DESC').all();
+      return Response.json(results);
+    }
+    
+    if (request.method === 'POST') {
+      const data: any = await request.json();
+      await env.DB.prepare(
+        'INSERT INTO sermons (id, title, mainTopic, transcript, summary, audioUrl, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(data.id, data.title, data.mainTopic, data.transcript, data.summary, data.audioUrl, Date.now()).run();
+      return Response.json({ success: true });
+    }
+  } catch (err: any) {
+    return new Response(err.message, { status: 500 });
+  }
+
+  return new Response('Method not allowed', { status: 405 });
+}
 
 // ── Static Assets & Robots ───────────────────────────────────────────────────
 
