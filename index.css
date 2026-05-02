@@ -15,6 +15,15 @@
   --font-sans: 'Instrument Sans', sans-serif;
 }
 
+.dark {
+  --color-sacred-indigo: #0A051A;
+  --color-royal-amethyst: #4C1D95;
+  --color-celestial-gold: #FCD34D;
+  --color-parchment: #0F172A;
+  --color-altar-white: #1E293B;
+  --color-shadow-gray: #F1F5F9;
+}
+
 @layer base {
   body {
     @apply bg-[var(--color-parchment)] text-[var(--color-shadow-gray)] antialiased selection:bg-amber-100 selection:text-indigo-900;

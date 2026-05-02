@@ -161,7 +161,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onNavigate, currentScr
             </button>
           </div>
           {mobileNavBtn('pricing', 'Growth', Sparkles)}
-          {mobileNavBtn('history', 'Prayer', Heart)}
+          {mobileNavBtn('summary', 'Prayer', Heart)}
         </nav>
       </div>
 
