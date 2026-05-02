@@ -36,6 +36,8 @@ interface Env {
    * Value: JSON string of { title, mainTopic, scriptureCount, timestamp }
    */
   SERMONS_KV?: KVNamespace;
+  /** D1 Database for history and search */
+  DB?: D1Database;
 }
 
 interface SermonKVEntry {
@@ -84,7 +86,9 @@ export default {
         element: (el) => {
           const name = el.getAttribute('name');
           const prop = el.getAttribute('property');
-          if (['description', 'keywords', 'og:title', 'og:description'].includes(name || prop || '')) el.remove();
+          if (['description', 'keywords', 'og:title', 'og:description'].includes(name || prop || '')) {
+            el.remove();
+          }
         }
       })
       .on('head', new MetaInjector(metaHTML))
