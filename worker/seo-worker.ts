@@ -81,7 +81,7 @@ export default {
     const metaHTML = await resolveMetaHTML(path, env);
 
     return new HTMLRewriter()
-      .on('title', { element: (el) => el.remove() })
+      .on('title', { element: (el) => { el.remove(); } })
       .on('meta', {
         element: (el) => {
           const name = el.getAttribute('name');
