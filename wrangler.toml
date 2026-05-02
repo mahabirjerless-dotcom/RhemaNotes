@@ -1,10 +1,8 @@
 name = "rhemanotes"
 main = "worker/seo-worker.ts"
+assets = { directory = "./dist" }
 compatibility_date = "2024-01-01"
 workers_dev = true
-
-[site]
-bucket = "./dist"
 
 [build]
 command = "npm run build"
