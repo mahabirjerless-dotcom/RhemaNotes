@@ -159,6 +159,21 @@ function App() {
   const [youtubeStep, setYoutubeStep] = useState<string | undefined>();
   
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    });
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setDeferredPrompt(null);
+  };
 
   const { tier, isPro } = useSubscription();
 
@@ -347,8 +362,18 @@ function App() {
                     className="btn-sacred-ghost"
                   >
                     <span>View Library</span>
-                    <ArrowRight className="w-4 h-4" />
+                    {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                   </button>
+
+                  {/* Install App Button */}
+                  {deferredPrompt && (
+                    <button
+                      onClick={handleInstall}
+                      className="ml-2 px-4 py-2 bg-amber-400 text-amber-950 rounded-xl text-xs font-black shadow-lg animate-pulse"
+                    >
+                      Install App
+                    </button>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
