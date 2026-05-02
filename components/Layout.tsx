@@ -167,11 +167,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, onNavigate, currentScr
 
       {/* ── Floating Feedback Button ── */}
       <div className="hidden md:block fixed bottom-8 right-8 z-[60]">
-         <button className="group relative flex items-center space-x-3 bg-white hover:bg-indigo-950 text-indigo-950 hover:text-white px-6 py-3 rounded-full shadow-xl border border-indigo-50 transition-all duration-500 hover:-translate-y-1">
+         <button
+           onClick={() => window.open('mailto:feedback@rhemanotes.com?subject=Prayer%20%26%20Feedback&body=Hello%2C%20I%20wanted%20to%20share...', '_blank')}
+           className="group relative flex items-center space-x-3 bg-white hover:bg-indigo-950 text-indigo-950 hover:text-white px-6 py-3 rounded-full shadow-xl border border-indigo-50 transition-all duration-500 hover:-translate-y-1"
+         >
             <div className="w-8 h-8 rounded-full bg-indigo-50 group-hover:bg-amber-400/20 flex items-center justify-center transition-colors">
                <MessageCircle className="w-4 h-4 text-indigo-400 group-hover:text-amber-200" />
             </div>
-            <span className="text-xs font-black uppercase tracking-widest">Share Prayer & Feedback</span>
+            <span className="text-xs font-black uppercase tracking-widest">Share Prayer &amp; Feedback</span>
          </button>
       </div>
 
