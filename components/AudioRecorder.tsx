@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { UserNote } from '../types';
 import { Button } from './Button';
-import { Mic, StopCircle, X, Send, StickyNote, RotateCcw } from 'lucide-react';
+import { Mic, StopCircle, X, Send, StickyNote, RotateCcw, Waves, Sparkles, Heart, Clock } from 'lucide-react';
 import { saveLiveDraft, getLiveDraft, clearLiveDraft } from '../services/storageService';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface AudioRecorderProps {
   onStopRecording: (transcript: string, notes?: UserNote[], file?: File) => Promise<void>;
@@ -61,7 +62,6 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onStopRecording, o
     fetchDraft();
   }, []);
   
-  // Visualizer and Quality Feedback state/refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -74,7 +74,7 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onStopRecording, o
     const source = audioCtx.createMediaStreamSource(stream);
     source.connect(analyser);
     
-    analyser.fftSize = 256;
+    analyser.fftSize = 128;
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     
@@ -95,7 +95,6 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onStopRecording, o
       
       ctx.clearRect(0, 0, width, height);
       
-      // Calculate average volume for quality feedback
       let sum = 0;
       for (let i = 0; i < bufferLength; i++) {
         sum += dataArray[i];
@@ -103,20 +102,25 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onStopRecording, o
       const average = sum / bufferLength;
       
       if (average < 10) setAudioQuality('quiet');
-      else if (average > 100) setAudioQuality('loud');
+      else if (average > 120) setAudioQuality('loud');
       else setAudioQuality('good');
 
-      const barWidth = (width / bufferLength) * 2.5;
-      let barHeight;
+      const barWidth = (width / bufferLength) * 2;
       let x = 0;
 
       for (let i = 0; i < bufferLength; i++) {
-        barHeight = (dataArray[i] / 255) * height;
+        const barHeight = (dataArray[i] / 255) * height;
         
-        ctx.fillStyle = `rgb(59, 130, 246)`; // Tailwind blue-500
-        ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+        const gradient = ctx.createLinearGradient(0, height, 0, height - barHeight);
+        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)'); // Indigo-500/20
+        gradient.addColorStop(1, 'rgba(251, 191, 36, 0.8)'); // Amber-400
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.roundRect(x, height - barHeight, barWidth, barHeight, 4);
+        ctx.fill();
 
-        x += barWidth + 1;
+        x += barWidth + 4;
       }
 
       animationFrameRef.current = requestAnimationFrame(draw);
@@ -178,15 +182,12 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onStopRecording, o
         if (intervalRef.current) {
           window.clearInterval(intervalRef.current);
         }
-        // Send the audio blob to be processed
-        console.log('Audio recording stopped. Preparing file for transcription...');
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const audioFile = new File([audioBlob], `live-sermon-${Date.now()}.webm`, { type: 'audio/webm' });
         
         await onStopRecording('', liveNotesRef.current, audioFile);
         await clearLiveDraft();
 
-        // Stop all tracks on the stream
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
         }
@@ -209,7 +210,6 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onStopRecording, o
     }
   }, [isRecording]);
 
-  // Clean up on component unmount
   useEffect(() => {
     return () => {
       stopVisualizer();
@@ -233,149 +233,192 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onStopRecording, o
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50">
-      <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Recording Controls */}
-        <div className="bg-white rounded-[2.5rem] shadow-2xl p-10 flex flex-col items-center justify-center border border-gray-100">
-          <h2 className="text-4xl font-black text-blue-950 mb-4 tracking-tight">Live Recording</h2>
-          
-          <div className="flex flex-col items-center justify-center w-full my-8">
-            <div className={`relative w-48 h-48 rounded-full flex items-center justify-center transition-all duration-500 ${isRecording ? 'bg-red-50' : 'bg-gray-50'}`}>
-              {isRecording && (
-                <div className="absolute inset-0 rounded-full bg-red-500 opacity-10 animate-ping-slow"></div>
-              )}
-              <div className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 z-10 ${isRecording ? 'bg-red-600 text-white shadow-xl shadow-red-200' : 'bg-blue-600 text-white shadow-xl shadow-blue-200'}`}>
-                {isRecording ? <Mic className="w-16 h-16 animate-pulse" /> : <Mic className="w-16 h-16" />}
-              </div>
+    <div className="flex flex-col items-center justify-center py-12 animate-in fade-in duration-700">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-12">
+        
+        {/* ── Sacred Recorder ── */}
+        <div className="sacred-card p-12 border-t-8 border-t-rose-600 flex flex-col items-center justify-center relative overflow-hidden">
+          {/* Subtle Background Glow */}
+          {isRecording && (
+            <div className="absolute inset-0 bg-rose-50/20 animate-pulse pointer-events-none" />
+          )}
+
+          <div className="relative z-10 text-center w-full">
+            <div className="inline-flex items-center space-x-2 bg-rose-50 px-4 py-2 rounded-full mb-8">
+               <Heart className={`w-4 h-4 ${isRecording ? 'text-rose-600 animate-pulse' : 'text-rose-200'}`} />
+               <span className="text-[10px] font-black text-rose-900 uppercase tracking-widest">
+                  {isRecording ? 'Scribing the Word' : 'Sacred Listening'}
+               </span>
             </div>
 
-            {isRecording && (
-              <div className="w-full mt-8 flex flex-col items-center">
-                <canvas 
-                  ref={canvasRef} 
-                  width={300} 
-                  height={60} 
-                  className="rounded-lg opacity-60 pointer-events-none"
-                />
-                <div className="mt-4 flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${
-                    audioQuality === 'good' ? 'bg-green-500' : 
-                    audioQuality === 'quiet' ? 'bg-yellow-500' : 
-                    audioQuality === 'loud' ? 'bg-red-500' : 'bg-gray-300'
-                  }`} />
-                  <span className="text-sm font-bold text-gray-500 uppercase tracking-widest">
-                    {audioQuality === 'good' ? 'Good Volume' : 
-                     audioQuality === 'quiet' ? 'Too Quiet' : 
-                     audioQuality === 'loud' ? 'Too Loud' : 'Checking...'}
-                  </span>
-                </div>
+            <h2 className="text-4xl font-serif font-black text-indigo-950 mb-4 tracking-tight leading-none">
+              {isRecording ? 'Capturing Wisdom' : 'Begin Recording'}
+            </h2>
+
+            <div className="flex flex-col items-center justify-center w-full my-12">
+              <div className="relative w-56 h-56 flex items-center justify-center">
+                <AnimatePresence>
+                  {isRecording && (
+                    <motion.div 
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1.2, opacity: 0.15 }}
+                      exit={{ scale: 0.8, opacity: 0 }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="absolute inset-0 rounded-full bg-rose-500" 
+                    />
+                  )}
+                </AnimatePresence>
+                
+                <button 
+                  onClick={isRecording ? stopRecording : startRecording}
+                  disabled={isLoading}
+                  className={`
+                    relative w-40 h-40 rounded-[48px] flex items-center justify-center transition-all duration-500 z-10 shadow-2xl active:scale-95
+                    ${isRecording 
+                      ? 'bg-rose-600 text-white shadow-rose-200 hover:bg-rose-700' 
+                      : 'bg-indigo-900 text-white shadow-indigo-100 hover:bg-indigo-800'}
+                  `}
+                >
+                  {isRecording ? <StopCircle className="w-16 h-16" /> : <Mic className="w-16 h-16" />}
+                </button>
               </div>
-            )}
-          </div>
 
-          <div className="text-center mb-10">
-            <p className="text-3xl font-black text-gray-900 mb-2">
-              {formatTime(recordingDuration)}
-            </p>
-            <p className="text-gray-500 font-medium">
-              {isRecording ? 'Capturing sermon audio...' : 'Ready to record your sermon'}
-            </p>
-          </div>
+              {isRecording && (
+                <div className="w-full mt-12 flex flex-col items-center">
+                  <canvas 
+                    ref={canvasRef} 
+                    width={320} 
+                    height={80} 
+                    className="rounded-2xl opacity-80 pointer-events-none"
+                  />
+                  <div className="mt-6 flex items-center space-x-2 bg-white/50 px-3 py-1.5 rounded-full border border-indigo-50 shadow-sm">
+                    <div className={`w-2 h-2 rounded-full ${
+                      audioQuality === 'good' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 
+                      audioQuality === 'quiet' ? 'bg-amber-500' : 
+                      audioQuality === 'loud' ? 'bg-rose-500' : 'bg-indigo-100'
+                    }`} />
+                    <span className="text-[10px] font-black text-indigo-900/40 uppercase tracking-widest">
+                      {audioQuality === 'good' ? 'Perfect Clarity' : 
+                       audioQuality === 'quiet' ? 'Whisper Quiet' : 
+                       audioQuality === 'loud' ? 'Distorted (Loud)' : 'Awakening...'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
 
-          <div className="flex flex-col w-full space-y-4">
-            {!isRecording ? (
-              <Button
-                onClick={startRecording}
+            <div className="text-center mb-12">
+              <div className="flex items-center justify-center space-x-2 mb-2">
+                 <Clock className="w-5 h-5 text-indigo-300" />
+                 <span className="text-4xl font-serif font-black text-indigo-950 tracking-tight">
+                    {formatTime(recordingDuration)}
+                 </span>
+              </div>
+              <p className="text-sm font-serif italic text-indigo-900/40">
+                {isRecording ? 'Preserving the spoken word for reflection...' : 'Your recording will be kept private & sacred.'}
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row w-full gap-4">
+              {isRecording && (
+                <button
+                  onClick={stopRecording}
+                  disabled={isLoading}
+                  className="btn-sacred-primary flex-1 py-4 bg-rose-600 hover:bg-rose-700"
+                >
+                  Complete Scribing
+                </button>
+              )}
+              <button
+                onClick={onCancel}
                 disabled={isLoading}
-                className="w-full py-5 text-xl font-bold bg-blue-600 hover:bg-blue-700"
+                className="btn-sacred-ghost flex-1 py-4 bg-white/50"
               >
-                <Mic className="w-6 h-6 mr-2" />
-                Start Recording
-              </Button>
-            ) : (
-              <Button
-                onClick={stopRecording}
-                disabled={isLoading}
-                className="w-full py-5 text-xl font-bold bg-red-600 hover:bg-red-700"
-              >
-                <StopCircle className="w-6 h-6 mr-2" />
-                Stop & Process
-              </Button>
-            )}
-            <Button
-              onClick={onCancel}
-              variant="secondary"
-              disabled={isLoading}
-              className="w-full py-4 text-gray-600"
-            >
-              <X className="w-5 h-5 mr-2" />
-              Cancel
-            </Button>
+                Cancel Journey
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Live Note Taking */}
-        <div className="bg-white rounded-[2.5rem] shadow-xl p-10 border border-gray-100 flex flex-col">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-2xl font-bold text-blue-950 flex items-center">
-              <StickyNote className="w-6 h-6 mr-2 text-blue-600" />
-              Live Notes
-            </h3>
-            <div className="flex items-center space-x-2">
+        {/* ── Live Manuscript (Notes) ── */}
+        <div className="sacred-card p-12 border border-indigo-50 flex flex-col h-full">
+          <div className="flex items-center justify-between mb-10">
+            <div className="flex items-center space-x-3">
+               <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+                  <StickyNote className="w-5 h-5 text-indigo-400" />
+               </div>
+               <h3 className="text-2xl font-serif font-black text-indigo-950">Live Reflections</h3>
+            </div>
+            
+            <div className="flex items-center space-x-3">
               {liveNotes.length > 0 && (
                 <button 
                   onClick={async () => {
-                    if (confirm('Clear all notes?')) {
+                    if (confirm('Clear these reflections?')) {
                       setLiveNotes([]);
                       await clearLiveDraft();
                     }
                   }}
-                  className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                  title="Clear all notes"
+                  className="p-2 text-indigo-200 hover:text-rose-600 hover:bg-rose-50 transition-all rounded-xl"
+                  title="Clear manuscript"
                 >
-                  <RotateCcw className="w-4 h-4" />
+                  <RotateCcw className="w-5 h-5" />
                 </button>
               )}
-              <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm font-bold">
-                {liveNotes.length} notes
+              <span className="bg-amber-50 text-amber-900 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest shadow-sm">
+                {liveNotes.length} Insights
               </span>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto mb-6 space-y-4 pr-2">
-            {liveNotes.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-gray-400 italic text-center p-8">
-                <p>Add notes while you listen.</p>
-                <p className="text-sm">They'll be timestamped automatically!</p>
-              </div>
-            ) : (
-              liveNotes.map((note) => (
-                <div key={note.id} className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 animate-in fade-in slide-in-from-right-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-black text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                      {formatTime(note.timestamp_offset || 0)}
-                    </span>
-                  </div>
-                  <p className="text-gray-800">{note.text}</p>
-                </div>
-              ))
-            )}
+          <div className="flex-1 overflow-y-auto mb-8 space-y-6 pr-2 scrollbar-hide min-h-[300px]">
+            <AnimatePresence initial={false}>
+              {liveNotes.length === 0 ? (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="h-full flex flex-col items-center justify-center text-center p-12"
+                >
+                  <Sparkles className="w-12 h-12 text-indigo-50 mb-6" />
+                  <p className="text-lg font-serif italic text-indigo-900/20 max-w-[240px]">
+                    Note down what moves you. They'll be timestamped to the Word.
+                  </p>
+                </motion.div>
+              ) : (
+                [...liveNotes].reverse().map((note) => (
+                  <motion.div 
+                    key={note.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="bg-indigo-50/30 p-6 rounded-[24px] border border-indigo-50/50 group hover:border-amber-200 transition-all"
+                  >
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[10px] font-black text-indigo-900/30 uppercase tracking-[0.2em] flex items-center">
+                        <Waves className="w-3.5 h-3.5 mr-2 text-amber-400" />
+                        At {formatTime(note.timestamp_offset || 0)}
+                      </span>
+                    </div>
+                    <p className="text-indigo-950 font-serif text-lg leading-relaxed">{note.text}</p>
+                  </motion.div>
+                ))
+              )}
+            </AnimatePresence>
           </div>
 
-          <div className="relative">
+          <div className="relative mt-auto pt-6 border-t border-indigo-50">
             <input
               type="text"
               value={currentDraftNote}
               onChange={(e) => setCurrentDraftNote(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addLiveNote()}
-              placeholder="Type a note and hit enter..."
+              placeholder="Capture an insight..."
               disabled={!isRecording}
-              className="w-full p-4 pr-14 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all disabled:opacity-50"
+              className="w-full p-6 pr-16 bg-white border-2 border-indigo-50 rounded-[28px] font-serif text-lg text-indigo-950 placeholder:text-indigo-100 focus:outline-none focus:border-indigo-900 transition-all disabled:opacity-30 shadow-inner"
             />
             <button
               onClick={addLiveNote}
               disabled={!isRecording || !currentDraftNote.trim()}
-              className="absolute right-2 top-2 p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:bg-gray-300"
+              className="absolute right-4 top-[2.25rem] p-3 bg-indigo-900 text-amber-200 rounded-2xl hover:bg-indigo-800 transition-all disabled:grayscale shadow-lg shadow-indigo-100 active:scale-95"
             >
               <Send className="w-5 h-5" />
             </button>
@@ -384,17 +427,27 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onStopRecording, o
       </div>
 
       {isLoading && (
-        <div className="fixed inset-0 bg-blue-900/40 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-white">
-          <div className="w-20 h-20 border-4 border-white/20 border-t-white rounded-full animate-spin mb-6" />
-          <h2 className="text-3xl font-black mb-2">Creating your summary</h2>
-          <p className="text-blue-100 opacity-80">Cleaning transcript and detecting scriptures...</p>
+        <div className="fixed inset-0 z-[100] bg-indigo-950/80 backdrop-blur-xl flex flex-col items-center justify-center text-center p-8">
+           <div className="relative w-32 h-32 mb-12">
+              <div className="absolute inset-0 bg-amber-400/20 rounded-full animate-ping" />
+              <div className="relative w-full h-full bg-indigo-900 rounded-[40px] flex items-center justify-center border-2 border-amber-200/50 shadow-2xl">
+                 <Sparkles className="w-12 h-12 text-amber-200 animate-pulse" />
+              </div>
+           </div>
+           <h2 className="text-4xl font-serif font-black text-amber-50 mb-4 tracking-tight">Illuminating the Word</h2>
+           <p className="text-amber-100/40 font-serif italic text-xl">"Speak, Lord, for your servant is listening." — 1 Samuel 3:9</p>
         </div>
       )}
 
       {error && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-red-600 text-white p-4 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-8">
-          {error}
-        </div>
+        <motion.div 
+          initial={{ opacity: 0, y: 100 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-rose-600 text-white px-8 py-4 rounded-[24px] shadow-2xl flex items-center space-x-3 z-50 font-black tracking-tight"
+        >
+          <X className="w-5 h-5" />
+          <span>{error}</span>
+        </motion.div>
       )}
     </div>
   );

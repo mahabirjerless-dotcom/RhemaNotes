@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { MASTER_SERMON_PROCESSING_PROMPT } from '../constants';
 import { SermonSummaryOutput } from '../types';
 
@@ -9,7 +9,71 @@ const ai = new GoogleGenAI({
     baseUrl: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
   }
 });
-const GEMINI_MODEL = 'gemini-2.5-flash';
+
+const GEMINI_MODEL = 'gemini-2.0-flash'; // Upgraded to 2.0-flash for better JSON & speed
+
+// ── JSON Schema for Sermon Processing ──────────────────────────────────────────
+
+const SERMON_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    title: { type: Type.STRING },
+    main_topic: { type: Type.STRING },
+    clean_transcript: { type: Type.STRING },
+    scriptures: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          reference: { type: Type.STRING },
+          plain_meaning: { type: Type.STRING },
+          speaker_usage: { type: Type.STRING },
+        },
+        required: ["reference"]
+      }
+    },
+    key_points: { type: Type.ARRAY, items: { type: Type.STRING } },
+    quotes: { type: Type.ARRAY, items: { type: Type.STRING } },
+    applications: { type: Type.ARRAY, items: { type: Type.STRING } },
+    open_questions: { type: Type.ARRAY, items: { type: Type.STRING } },
+    actionable_insights: { type: Type.ARRAY, items: { type: Type.STRING } },
+    reflection: {
+      type: Type.OBJECT,
+      properties: {
+        takeaway: { type: Type.STRING },
+        reflection_text: { type: Type.STRING },
+        prayer: { type: Type.STRING },
+      }
+    },
+    quiz: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          question: { type: Type.STRING },
+          options: { type: Type.ARRAY, items: { type: Type.STRING } },
+          correctIndex: { type: Type.NUMBER },
+          explanation: { type: Type.STRING },
+        },
+        required: ["question", "options", "correctIndex"]
+      }
+    },
+    flashcards: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          front: { type: Type.STRING },
+          back: { type: Type.STRING },
+        },
+        required: ["front", "back"]
+      }
+    }
+  },
+  required: ["title", "main_topic", "clean_transcript", "scriptures", "key_points"]
+};
+
+// ── Service Functions ─────────────────────────────────────────────────────────
 
 export async function processSermonTranscript(
   transcript: string,
@@ -40,93 +104,93 @@ export async function processSermonYoutubeUrl(
   url: string,
   includeReflection: boolean,
 ): Promise<SermonSummaryOutput> {
-  const prompt = MASTER_SERMON_PROCESSING_PROMPT(`Sermon YouTube Video Link: ${url}\nPlease read the full transcript of this video from the provided URL and process it.`, includeReflection);
+  // Use a refined prompt for YouTube that asks Gemini to use its internal grounding if possible
+  const prompt = `Please process the following YouTube sermon: ${url}. 
+  ${MASTER_SERMON_PROCESSING_PROMPT("the provided YouTube link", includeReflection)}`;
   return callGemini([{ text: prompt }], includeReflection);
 }
 
 async function callGemini(parts: any[], includeReflection: boolean): Promise<SermonSummaryOutput> {
-
   try {
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
       contents: [{ role: 'user', parts }],
       config: {
         responseMimeType: "application/json",
+        responseSchema: SERMON_SCHEMA,
       },
     });
 
-    const jsonString = response.text?.trim();
+    const jsonString = response.text;
+
     if (!jsonString) {
       throw new Error("No response or empty response from Gemini API.");
     }
 
-    let parsedData: SermonSummaryOutput;
-    try {
-      const cleanJsonString = jsonString.startsWith('```json') && jsonString.endsWith('```')
-        ? jsonString.substring(7, jsonString.length - 3).trim()
-        : jsonString;
-      parsedData = JSON.parse(cleanJsonString);
-    } catch (parseError) {
-      console.error("Failed to parse JSON response:", jsonString, parseError);
-      throw new Error(`Invalid JSON response from AI.`);
-    }
+    const parsedData: SermonSummaryOutput = JSON.parse(jsonString);
 
-    // Default values for missing fields to satisfy the requirement of theme detection and actionable insights
-    if (!parsedData.actionable_insights) parsedData.actionable_insights = [];
-    if (!parsedData.user_notes) parsedData.user_notes = [];
-    if (!parsedData.personal_action_items) parsedData.personal_action_items = [];
+    // Initialize optional fields if missing
+    parsedData.actionable_insights = parsedData.actionable_insights || [];
+    parsedData.user_notes = parsedData.user_notes || [];
+    parsedData.personal_action_items = parsedData.personal_action_items || [];
+    parsedData.quiz = parsedData.quiz || [];
+    parsedData.flashcards = parsedData.flashcards || [];
 
     if (!includeReflection) {
-      parsedData.reflection = {};
-    } else if (!parsedData.reflection) {
       parsedData.reflection = {};
     }
 
     return parsedData;
   } catch (error: any) {
     console.error("Error calling Gemini API:", error);
-    throw new Error(`Failed to communicate with Gemini API: ${error.message}`);
+    throw new Error(`AI Processing Error: ${error.message}`);
   }
 }
 
-export async function sermonChat(
+/**
+ * Chat with the sermon transcript.
+ * Supports streaming responses for a better user experience.
+ */
+export async function* streamSermonChat(
   history: { role: 'user' | 'assistant', content: string }[],
   message: string,
   transcript: string
-): Promise<string> {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("Gemini API Key is not configured.");
-  }
-
+): AsyncGenerator<string> {
   try {
-    const chat = ai.models.generateContent({
+    const contents = [
+      {
+        role: 'user',
+        parts: [{ text: `You are a helpful sermon study assistant. Answer strictly using information from the provided transcript.
+        
+        Transcript:
+        ${transcript}` }]
+      },
+      ...history.map(h => ({
+        role: h.role === 'user' ? 'user' : 'model' as any,
+        parts: [{ text: h.content }]
+      })),
+      {
+        role: 'user',
+        parts: [{ text: message }]
+      }
+    ];
+
+    const result = await ai.models.generateContentStream({ 
       model: GEMINI_MODEL,
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: `You are a helpful sermon study assistant. You have access to the following sermon transcript. Answer the user's questions strictly using information from the transcript when possible. If the user asks a general Bible question, provide a scripture-grounded answer that aligns with the spirit of the sermon.
-          
-          Transcript:
-          ${transcript}` }]
-        },
-        ...history.map(h => ({
-          role: h.role === 'user' ? 'user' : 'model',
-          parts: [{ text: h.content }]
-        })),
-        {
-          role: 'user',
-          parts: [{ text: message }]
-        }
-      ]
+      contents 
     });
 
-    const result = await chat;
-    return result.text || "I couldn't generate a response.";
+    for await (const chunk of result) {
+      const text = chunk.text;
+      if (text) yield text;
+    }
   } catch (error: any) {
-    console.error("Error in sermonChat:", error);
-    throw new Error(`Failed to chat with AI: ${error.message}`);
+    console.error("Error in streamSermonChat:", error);
+    throw new Error(`Failed to chat: ${error.message}`);
   }
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
