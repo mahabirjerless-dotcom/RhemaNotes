@@ -3,19 +3,12 @@
 
 name       = "rhemanotes"
 main       = "worker/seo-worker.ts"
-account_id = ""          # paste your Cloudflare account ID here
 compatibility_date = "2024-01-01"
+workers_dev = true
 
 # Serve the Vite build output as static assets
 [site]
 bucket = "./dist"
-
-# Optional: KV namespace for dynamic sermon meta (server-side SEO)
-# Create with: npx wrangler kv:namespace create SERMONS_KV
-# Then paste the id below
-# [[kv_namespaces]]
-# binding = "SERMONS_KV"
-# id      = "YOUR_KV_NAMESPACE_ID"
 
 [build]
 command = "npm run build"
@@ -24,7 +17,3 @@ command = "npm run build"
 binding = "DB"
 database_name = "rhemanotes-db"
 database_id = "2a7e39cf-71ff-4b08-b7ea-36d7585d3575"
-
-[[routes]]
-pattern = "rhemanotes.jerlessm.workers.dev/*"
-zone_name = "workers.dev"
