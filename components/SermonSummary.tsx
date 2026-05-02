@@ -9,7 +9,12 @@ import { StudySystem } from './StudySystem';
 import { BibleTab } from './BibleTab';
 import { processSermonTranscript } from '../services/geminiService';
 import { updateSermonInHistory } from '../services/storageService';
-import { BookOpen, RefreshCw, Copy, CheckCircle2 } from 'lucide-react';
+import { setPageMeta, buildSermonMeta } from '../services/seoService';
+import { BookOpen, RefreshCw, CheckCircle2, Copy, Sparkles, MessageSquare, Book, ChevronRight, Waves, Heart, FileText } from 'lucide-react';
+import { SermonChat } from './SermonChat';
+import { motion, AnimatePresence } from 'motion/react';
+import { useSubscription } from '../hooks/useSubscription';
+import { Lock } from 'lucide-react';
 
 interface SermonSummaryProps {
   summary: SermonSummaryOutput;
@@ -21,12 +26,6 @@ interface SermonSummaryProps {
   onUpdateHistory?: () => void;
 }
 
-
-
-
-
-import { SermonChat } from './SermonChat';
-
 export const SermonSummary: React.FC<SermonSummaryProps> = ({
   summary, onGoHome, includeReflection, onToggleReflection, isLoading, historyId, onUpdateHistory,
 }) => {
@@ -37,8 +36,19 @@ export const SermonSummary: React.FC<SermonSummaryProps> = ({
   const [bibleInitialRef, setBibleInitialRef] = useState<string | undefined>();
   const [copied, setCopied] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const { isPro } = useSubscription();
 
   useEffect(() => { setCurrentSummary(summary); }, [summary]);
+
+  useEffect(() => {
+    setPageMeta(buildSermonMeta({
+      id: historyId ?? 'preview',
+      title: summary.title || 'Sermon Note',
+      mainTopic: summary.main_topic || '',
+      scriptureCount: summary.scriptures?.length ?? 0,
+      timestamp: Date.now(),
+    }));
+  }, [summary.title, historyId]);
 
   useEffect(() => {
     if (currentSummary.audio_blob) {
@@ -95,7 +105,6 @@ export const SermonSummary: React.FC<SermonSummaryProps> = ({
     }
   }, [currentSummary, includeReflection, onToggleReflection, handleUpdateSummarization]);
 
-  // Modal State for left-column resources
   const [activeResource, setActiveResource] = useState<'transcript' | 'notes' | 'study' | 'apply' | null>(null);
 
   const renderResourceContent = () => {
@@ -109,161 +118,304 @@ export const SermonSummary: React.FC<SermonSummaryProps> = ({
   };
 
   return (
-    <div className="w-full flex flex-col lg:flex-row gap-6 animate-in fade-in duration-500 max-w-[1400px] mx-auto">
+    <div className="w-full flex flex-col lg:flex-row gap-8 animate-in fade-in duration-700 max-w-[1500px] mx-auto">
       
-      {/* ── Left Column (Main Content) ── */}
-      <div className="flex-1 flex flex-col gap-6">
+      {/* ── Main Content Area ── */}
+      <div className="flex-1 flex flex-col gap-8">
         
-        {/* Hero Card */}
-        <div className="bg-indigo-50/50 dark:bg-indigo-950/20 rounded-3xl p-8 border border-indigo-100 dark:border-indigo-900 shadow-sm relative overflow-hidden">
+        {/* Sacred Manuscript Header */}
+        <div className="sacred-card p-10 md:p-12 border-t-8 border-t-indigo-900 relative overflow-hidden">
           <div className="relative z-10">
-            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
-              {currentSummary.title || 'Sermon Summary'}
+            <div className="flex items-center space-x-2 mb-4">
+               <div className="px-3 py-1 bg-amber-100 text-amber-900 text-[10px] font-black uppercase tracking-widest rounded-full">
+                 Spirit-Led Insight
+               </div>
+            </div>
+            
+            <h2 className="text-4xl md:text-5xl font-serif font-black text-indigo-950 tracking-tight mb-4 leading-tight">
+              {currentSummary.title || 'Sermon Illumination'}
             </h2>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-sm font-medium text-slate-500 dark:text-slate-400">
-              <span className="flex items-center space-x-1.5">
-                <BookOpen className="w-4 h-4 text-indigo-500" />
+            
+            <div className="flex flex-wrap items-center gap-6 text-indigo-900/50">
+              <span className="flex items-center space-x-2 bg-indigo-50/50 px-4 py-2 rounded-2xl font-serif italic text-indigo-900">
+                <Waves className="w-4 h-4 text-amber-400" />
                 <span>{currentSummary.main_topic}</span>
               </span>
               
               {audioUrl && (
-                <div className="flex items-center space-x-2 mt-2 sm:mt-0">
-                  <audio controls className="h-8 max-w-[240px] opacity-80 hover:opacity-100 transition-opacity" src={audioUrl}>
-                    Your browser does not support the audio element.
-                  </audio>
+                <div className="flex items-center space-x-3 bg-white/50 backdrop-blur-sm p-1 pr-4 rounded-full border border-indigo-50 shadow-sm">
+                  <div className="w-8 h-8 rounded-full bg-indigo-900 flex items-center justify-center">
+                     <RefreshCw className="w-4 h-4 text-amber-200" />
+                  </div>
+                  <audio controls className="h-8 max-w-[180px] opacity-70 hover:opacity-100 transition-opacity" src={audioUrl} />
                 </div>
               )}
             </div>
           </div>
           
-          {/* Actions in top right */}
-          <div className="absolute top-6 right-6 z-20 flex space-x-2">
-            <button
-              onClick={handleCopyText}
-              className="flex items-center space-x-2 px-3 py-1.5 bg-white/60 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-800 backdrop-blur border border-indigo-100/50 dark:border-indigo-800/50 rounded-xl text-sm font-semibold text-indigo-700 dark:text-indigo-300 transition-all shadow-sm"
-            >
-              {copied ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-              <span className="hidden sm:inline">{copied ? 'Copied!' : 'Copy Notes'}</span>
-            </button>
-          </div>
+          <button
+            onClick={handleCopyText}
+            className="absolute top-10 right-10 flex items-center space-x-2 px-5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/50 rounded-2xl text-sm font-black transition-all shadow-sm active:scale-95"
+          >
+            {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+            <span className="hidden sm:inline">{copied ? 'Preserved!' : 'Copy Notes'}</span>
+          </button>
 
-          {/* Decorative background element */}
-          <div className="absolute -right-8 -top-8 w-40 h-40 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+          {/* Decorative halo */}
+          <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-indigo-100/30 rounded-full blur-[100px] pointer-events-none" />
         </div>
 
-        {/* Resources Card */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Study Resources</h3>
-          <div className="space-y-3">
+        {/* Study Portal */}
+        <div className="sacred-card p-10 border border-indigo-50">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-2xl font-serif font-black text-indigo-950">Study Resources</h3>
+            <div className="h-px flex-grow bg-indigo-50 mx-6" />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
-              { id: 'notes', label: 'Structured Notes', desc: 'Sermon breakdown and key points' },
-              { id: 'apply', label: 'Action & Application', desc: 'How to apply this to your life' },
-              { id: 'study', label: 'Study System', desc: 'Flashcards, Quiz, and Mind Map' },
-              { id: 'transcript', label: 'Full Transcript', desc: 'Read the raw sermon text' },
+              { id: 'notes', label: 'Structured Notes', desc: 'Divine breakdown and key truths' },
+              { id: 'apply', label: 'Spiritual Application', desc: 'Walking the word in daily life' },
+              { id: 'study', label: 'Illumination Tools', desc: 'Quizzes, Flashcards & Vision Map' },
+              { id: 'transcript', label: 'Full Scroll', desc: 'The complete spoken word' },
             ].map(res => (
-              <div key={res.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
-                <div>
-                  <p className="font-bold text-slate-800 dark:text-slate-200">{res.label}</p>
-                  <p className="text-xs text-slate-500">{res.desc}</p>
-                </div>
-                <Button 
-                  onClick={() => setActiveResource(activeResource === res.id ? null : res.id as any)} 
-                  variant={activeResource === res.id ? 'primary' : 'secondary'} 
-                  className="text-xs px-4 py-1.5"
-                >
-                  {activeResource === res.id ? 'Close' : 'Open'}
-                </Button>
-              </div>
-            ))}
-          </div>
-
-          {/* Active Resource Expansion */}
-          {activeResource && (
-            <div className="mt-6 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-4 fade-in">
-              {renderResourceContent()}
-            </div>
-          )}
-        </div>
-
-        {/* Scriptures (Verbs-like tags) */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Scriptures Mentioned</h3>
-          <p className="text-xs text-slate-500 mb-5 uppercase tracking-wider font-semibold">Click to read in Bible</p>
-          <div className="flex flex-wrap gap-2">
-            {currentSummary.scriptures.map((scripture, i) => (
-              <button
-                key={i}
-                onClick={() => openInBible(scripture.reference)}
-                className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800 rounded-lg text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:-translate-y-0.5 transition-all"
+              <button 
+                key={res.id} 
+                onClick={() => {
+                  if ((res.id === 'study' || res.id === 'chat') && !isPro) {
+                    // Navigate to pricing if they click a locked feature
+                    // In a more complex app, we'd pass a navigation prop
+                    return; 
+                  }
+                  setActiveResource(activeResource === res.id ? null : res.id as any);
+                }}
+                className={`
+                  flex items-center justify-between p-6 rounded-3xl border transition-all duration-300 text-left relative
+                  ${activeResource === res.id 
+                    ? 'bg-indigo-900 border-indigo-900 shadow-xl shadow-indigo-200' 
+                    : 'bg-white border-indigo-50 hover:border-amber-200 hover:shadow-lg'}
+                  ${(res.id === 'study' && !isPro) ? 'opacity-70 grayscale' : ''}
+                `}
               >
-                {scripture.reference}
+                {res.id === 'study' && !isPro && (
+                  <div className="absolute top-4 right-4 text-amber-500">
+                    <Lock className="w-3.5 h-3.5" />
+                  </div>
+                )}
+                <div>
+                  <p className={`text-lg font-serif font-black ${activeResource === res.id ? 'text-amber-100' : 'text-indigo-950'}`}>
+                    {res.label}
+                  </p>
+                  <p className={`text-xs mt-1 ${activeResource === res.id ? 'text-amber-100/60' : 'text-indigo-900/40'}`}>
+                    {res.desc}
+                  </p>
+                </div>
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors ${activeResource === res.id ? 'bg-amber-100/20' : 'bg-indigo-50'}`}>
+                   <ChevronRight className={`w-5 h-5 ${activeResource === res.id ? 'text-amber-200' : 'text-indigo-300'}`} />
+                </div>
               </button>
             ))}
+          </div>
+
+          <AnimatePresence>
+            {activeResource && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-8 p-8 bg-indigo-50/30 rounded-[32px] border border-indigo-100/50">
+                  {renderResourceContent()}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Sacred Scriptures List */}
+        <div className="sacred-card p-10 border border-amber-100 bg-gradient-to-br from-white to-amber-50/30">
+          <div className="flex items-center space-x-3 mb-6">
+             <Book className="w-6 h-6 text-amber-500" />
+             <h3 className="text-2xl font-serif font-black text-indigo-950">Scripture Foundation</h3>
+          </div>
+          
+          <div className="flex flex-wrap gap-3">
+            {currentSummary.scriptures.map((scripture, i) => (
+              <div key={i} className="group relative">
+                <button
+                  onClick={() => openInBible(scripture.reference)}
+                  className="px-5 py-3 bg-white hover:bg-amber-100 text-indigo-950 border border-indigo-100 hover:border-amber-300 rounded-2xl text-sm font-serif font-bold italic transition-all hover:-translate-y-1 shadow-sm"
+                >
+                  {scripture.reference}
+                </button>
+                
+                {/* Divine Tooltip */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-64 p-4 bg-indigo-950 text-white rounded-2xl shadow-2xl opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 transition-all z-[70] text-left">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-2">Divine Meaning</p>
+                  <p className="text-xs font-serif italic leading-relaxed text-amber-50">
+                    "{scripture.plain_meaning}"
+                  </p>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 w-3 h-3 bg-indigo-950 rotate-45 -mt-1.5" />
+                </div>
+              </div>
+            ))}
             {currentSummary.scriptures.length === 0 && (
-              <p className="text-sm text-slate-400 italic">No scriptures detected.</p>
+              <p className="text-lg text-indigo-900/30 font-serif italic">No scriptures detected in this journey.</p>
             )}
           </div>
         </div>
 
-        {/* Footer actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
-          <label className="flex items-center space-x-3 cursor-pointer select-none">
+        {/* Reflection Journal Section */}
+        <div className="sacred-card p-10 border-t-4 border-t-amber-400">
+          <div className="flex items-center space-x-3 mb-8">
+             <Heart className="w-6 h-6 text-rose-400" />
+             <h3 className="text-2xl font-serif font-black text-indigo-950">Reflection Journal</h3>
+          </div>
+          
+          <div className="space-y-6">
+            <p className="text-indigo-900/40 font-serif italic mb-6 leading-relaxed">
+              Use this space to record how the Spirit is speaking to you through this message.
+            </p>
+            
+            <textarea 
+              placeholder="What is your main takeaway for your life this week?"
+              className="w-full min-h-[160px] p-6 bg-indigo-50/30 border-2 border-indigo-50 rounded-[32px] font-serif text-lg text-indigo-950 placeholder:text-indigo-900/20 focus:outline-none focus:border-amber-200 transition-all"
+            />
+            
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <button className="btn-sacred-primary flex-1 py-4">
+                 Save to Journal
+              </button>
+              <button className="btn-sacred-gold flex-1 py-4 flex items-center justify-center space-x-2">
+                 <Sparkles className="w-4 h-4" />
+                 <span>AI Guided Prompts</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Share & Preserve Section */}
+        <div className="sacred-card p-10 border border-indigo-50 bg-indigo-50/10">
+          <h3 className="text-xl font-serif font-black text-indigo-950 mb-6">Preserve & Share</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: 'PDF Export', icon: FileText, color: 'indigo' },
+              { label: 'Share Link', icon: MessageSquare, color: 'indigo' },
+              { label: 'Instagram Story', icon: Sparkles, color: 'rose' },
+              { label: 'Church Group', icon: Waves, color: 'indigo' },
+            ].map((action, i) => (
+              <button key={i} className="flex flex-col items-center justify-center p-4 rounded-2xl bg-white border border-indigo-50 hover:border-amber-200 hover:-translate-y-1 transition-all group">
+                <div className={`w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center mb-3 group-hover:bg-indigo-900 transition-colors`}>
+                  <action.icon className="w-5 h-5 text-indigo-400 group-hover:text-white" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-950/60 group-hover:text-indigo-950">
+                  {action.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Reflection Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-4 pb-12">
+          <label className="flex items-center space-x-4 group cursor-pointer">
             <button
               role="switch"
               aria-checked={includeReflection}
               onClick={handleToggleReflectionAndReprocess}
               disabled={reflectionBusy || isLoading}
               className={`
-                relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
-                ${includeReflection ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'}
+                relative w-14 h-8 rounded-full transition-all duration-500 focus:outline-none
+                ${includeReflection ? 'bg-indigo-900 shadow-inner' : 'bg-indigo-100'}
                 disabled:opacity-50
               `}
             >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${includeReflection ? 'translate-x-5' : ''}`} />
+              <span className={`
+                absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-lg transition-transform duration-500 flex items-center justify-center
+                ${includeReflection ? 'translate-x-6 rotate-12' : ''}
+              `}>
+                 <Sparkles className={`w-3.5 h-3.5 ${includeReflection ? 'text-amber-500' : 'text-indigo-200'}`} />
+              </span>
             </button>
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              {reflectionBusy ? (
-                <span className="flex items-center space-x-1.5 text-indigo-600 dark:text-indigo-400">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Updating reflection…</span>
-                </span>
-              ) : 'Include AI Reflection'}
-            </span>
+            <div className="flex flex-col">
+               <span className="text-base font-serif font-black text-indigo-950">
+                  AI Deep Reflection
+               </span>
+               <span className="text-xs text-indigo-900/40 font-bold uppercase tracking-widest">
+                  {reflectionBusy ? 'Illuminating…' : 'Enhance Study Guide'}
+               </span>
+            </div>
           </label>
-          {reflectionError && <p className="text-xs text-red-500">{reflectionError}</p>}
-          <Button onClick={onGoHome} variant="secondary" className="text-sm py-2 px-5">
-            ← Back to Home
-          </Button>
+          
+          <button onClick={onGoHome} className="btn-sacred-ghost px-8 py-3 bg-white shadow-sm border border-indigo-50">
+            ← Return Home
+          </button>
         </div>
 
       </div>
 
-      {/* ── Right Column (Sidebar) ── */}
-      <div className="w-full lg:w-[420px] flex-shrink-0 flex flex-col gap-6">
+      {/* ── Sidebar (Chat & Bible) ── */}
+      <div className="w-full lg:w-[460px] flex-shrink-0 flex flex-col gap-8">
         
-        {/* Sidebar Navigation */}
-        <div className="flex bg-white dark:bg-slate-900 rounded-2xl p-1.5 border border-slate-200 dark:border-slate-800 shadow-sm">
+        {/* Divine Sidebar Toggle */}
+        <div className="flex bg-indigo-50/50 p-2 rounded-3xl border border-indigo-100 shadow-inner">
           <button
             onClick={() => setSidebarView('chat')}
-            className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${sidebarView === 'chat' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+            className={`
+              flex-1 flex items-center justify-center space-x-2 py-4 text-sm font-black rounded-2xl transition-all duration-500
+              ${sidebarView === 'chat' 
+                ? 'bg-white text-indigo-900 shadow-xl shadow-indigo-100' 
+                : 'text-indigo-900/40 hover:text-indigo-900'}
+            `}
           >
-            Study Chat
+            <MessageSquare className="w-4 h-4" />
+            <span>Study Chat</span>
           </button>
           <button
             onClick={() => setSidebarView('bible')}
-            className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${sidebarView === 'bible' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+            className={`
+              flex-1 flex items-center justify-center space-x-2 py-4 text-sm font-black rounded-2xl transition-all duration-500
+              ${sidebarView === 'bible' 
+                ? 'bg-white text-indigo-900 shadow-xl shadow-indigo-100' 
+                : 'text-indigo-900/40 hover:text-indigo-900'}
+            `}
           >
-            Bible Reader
+            <Book className="w-4 h-4" />
+            <span>Bible Reader</span>
           </button>
         </div>
 
-        {/* Sidebar Content */}
-        <div className="flex-1 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden min-h-[600px]">
-          {sidebarView === 'chat' ? (
-            <SermonChat summary={currentSummary} onUpdateSummary={handleUpdateSummarization} />
-          ) : (
-            <BibleTab summary={currentSummary} onUpdateSummary={handleUpdateSummarization} initialReference={bibleInitialRef} />
-          )}
+        {/* Divine Content Container */}
+        <div className="flex-1 bg-white rounded-[40px] border border-indigo-50 shadow-2xl shadow-indigo-100/50 overflow-hidden min-h-[700px] flex flex-col">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={sidebarView}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="flex-1 flex flex-col h-full"
+            >
+              {sidebarView === 'chat' ? (
+                isPro ? (
+                  <SermonChat summary={currentSummary} onUpdateSummary={handleUpdateSummarization} />
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-10 text-center">
+                    <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-6">
+                      <Lock className="w-8 h-8 text-amber-500" />
+                    </div>
+                    <h4 className="text-xl font-serif font-black text-indigo-950 mb-3">Divine Dialogue</h4>
+                    <p className="text-sm text-indigo-900/40 font-serif italic mb-8">
+                      Deepen your study by chatting with the sermon. This feature is reserved for our Pro members.
+                    </p>
+                    {/* Note: In a real app we'd trigger the pricing screen here */}
+                  </div>
+                )
+              ) : (
+                <BibleTab summary={currentSummary} onUpdateSummary={handleUpdateSummarization} initialReference={bibleInitialRef} />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
       </div>

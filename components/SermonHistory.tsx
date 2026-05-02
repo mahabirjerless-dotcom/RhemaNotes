@@ -1,7 +1,7 @@
 import React from 'react';
 import { SermonHistoryItem } from '../types';
 import { Button } from './Button';
-import { BookOpen, ChevronRight, Trash2, Clock, BookMarked, Sparkles } from 'lucide-react';
+import { BookOpen, ChevronRight, Trash2, Clock, BookMarked, Sparkles, Waves } from 'lucide-react';
 
 interface SermonHistoryProps {
   history: SermonHistoryItem[];
@@ -14,81 +14,106 @@ interface SermonHistoryProps {
 export const SermonHistory: React.FC<SermonHistoryProps> = ({
   history, onSelectSermon, onDeleteItem, onGoHome, onLoadDemo
 }) => {
+  const [search, setSearch] = React.useState('');
   const fmt = (ts: number) =>
     new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(ts));
 
+  const filteredHistory = history.filter(item => 
+    (item.summary.title || '').toLowerCase().includes(search.toLowerCase()) ||
+    (item.summary.main_topic || '').toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-400">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Sermon History</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Your past notes and reflections</p>
+    <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-6">
+        <div className="flex items-center space-x-4">
+           <div className="w-12 h-12 bg-indigo-900 rounded-2xl flex items-center justify-center shadow-lg">
+              <Waves className="w-6 h-6 text-amber-200" />
+           </div>
+           <div>
+             <h2 className="text-4xl font-serif font-black text-indigo-950 tracking-tight">Your Library</h2>
+             <p className="text-indigo-900/40 font-serif italic">Review your spiritual journey</p>
+           </div>
         </div>
-        <Button onClick={onGoHome} variant="secondary" className="text-sm py-2 px-4">
-          ← Back
-        </Button>
+        
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+          <div className="relative w-full sm:w-64">
+             <input 
+               type="text" 
+               placeholder="Search wisdom..."
+               value={search}
+               onChange={e => setSearch(e.target.value)}
+               className="w-full pl-12 pr-4 py-2.5 bg-white border border-indigo-50 rounded-2xl font-serif text-indigo-950 focus:outline-none focus:border-amber-200 shadow-sm"
+             />
+             <Sparkles className="absolute left-4 top-3 w-4 h-4 text-indigo-200" />
+          </div>
+          <button onClick={onGoHome} className="btn-sacred-ghost px-6 py-2 bg-white border border-indigo-50 shadow-sm whitespace-nowrap">
+            ← Return
+          </button>
+        </div>
       </div>
 
       {history.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-16 text-center shadow-soft">
-          <div className="w-16 h-16 bg-blue-50 dark:bg-blue-950 rounded-2xl flex items-center justify-center mx-auto mb-5">
-            <BookMarked className="w-8 h-8 text-blue-300 dark:text-blue-700" />
+        <div className="sacred-card p-20 text-center flex flex-col items-center">
+          <div className="w-20 h-20 bg-indigo-50 rounded-[32px] flex items-center justify-center mb-6 shadow-inner">
+            <BookMarked className="w-10 h-10 text-indigo-200" />
           </div>
-          <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-2">No sermons yet</h3>
-          <p className="text-sm text-slate-400 dark:text-slate-600 mb-6">Record, upload, or paste a sermon to get started.</p>
-          <div className="flex items-center justify-center space-x-3">
-            <Button onClick={onGoHome} variant="secondary">Go back</Button>
-            <Button onClick={onLoadDemo} className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0 shadow-glow">
-              <Sparkles className="w-4 h-4 mr-2" />
-              Load Demo Sermon
-            </Button>
+          <h3 className="text-2xl font-serif font-black text-indigo-950 mb-3">No sermons preserved yet</h3>
+          <p className="text-indigo-900/40 font-serif italic mb-8 max-w-sm">Capture your first sermon to begin building your personal archive of wisdom.</p>
+          <div className="flex items-center space-x-4">
+            <button onClick={onGoHome} className="btn-sacred-ghost">Go back</button>
+            <button onClick={onLoadDemo} className="btn-sacred-gold shadow-lg">
+              <Sparkles className="w-4 h-4" />
+              <span>Explore Demo Sermon</span>
+            </button>
           </div>
         </div>
       ) : (
-        <div className="space-y-3">
-          {history.map(item => (
+        <div className="space-y-4">
+          {filteredHistory.map(item => (
             <div
               key={item.id}
-              className="
-                group bg-white dark:bg-slate-900
-                border border-slate-200 dark:border-slate-800
-                rounded-2xl px-5 py-4 shadow-soft
-                hover:shadow-card hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-800
-                transition-all duration-200 cursor-pointer
-                flex items-center justify-between gap-4
-              "
               onClick={() => onSelectSermon(item)}
+              className="
+                group sacred-card sacred-card-hover px-8 py-6 cursor-pointer
+                flex items-center justify-between gap-6 border-l-4 border-l-transparent hover:border-l-amber-300
+              "
             >
-              <div className="flex items-center space-x-4 min-w-0">
-                <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 transition-colors">
-                  <BookOpen className="w-5 h-5 text-blue-500 group-hover:text-white transition-colors" />
+              <div className="flex items-center space-x-6 min-w-0">
+                <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-900 transition-all duration-500">
+                  <BookOpen className="w-6 h-6 text-indigo-400 group-hover:text-amber-200 transition-colors" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
+                  <h3 className="text-xl font-serif font-black text-indigo-950 truncate group-hover:text-indigo-700 transition-colors">
                     {item.summary.title || 'Untitled Sermon'}
                   </h3>
-                  <div className="flex items-center space-x-1 text-xs text-slate-400 mt-0.5">
-                    <Clock className="w-3 h-3" />
-                    <span>{fmt(item.timestamp)}</span>
-                    <span className="mx-1">·</span>
-                    <span>{item.summary.scriptures.length} scriptures</span>
-                    <span className="mx-1">·</span>
-                    <span>{item.summary.key_points.length} points</span>
+                  <div className="flex flex-wrap items-center gap-y-1 text-xs font-bold text-indigo-900/30 uppercase tracking-widest mt-1.5">
+                    <span className="flex items-center">
+                       <Clock className="w-3.5 h-3.5 mr-1.5" />
+                       {fmt(item.timestamp)}
+                    </span>
+                    <span className="mx-2 hidden sm:inline">·</span>
+                    <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md">{item.summary.scriptures.length} Scriptures</span>
+                    <span className="mx-2 hidden sm:inline">·</span>
+                    <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md">{item.summary.key_points.length} Insights</span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-1 flex-shrink-0">
+              <div className="flex items-center space-x-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 <button
                   onClick={e => {
                     e.stopPropagation();
-                    if (confirm('Delete this sermon from history?')) onDeleteItem(item.id);
+                    if (confirm('Preserve space? This record will be removed from your library.')) onDeleteItem(item.id);
                   }}
-                  className="p-2 text-slate-300 hover:text-red-500 dark:text-slate-700 dark:hover:text-red-400 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-950"
+                  className="p-3 text-indigo-200 hover:text-rose-600 hover:bg-rose-50 transition-all rounded-xl"
+                  title="Remove from library"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
-                <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-700 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all" />
+                <div className="w-10 h-10 rounded-full border border-indigo-50 flex items-center justify-center group-hover:border-amber-200 transition-colors">
+                   <ChevronRight className="w-5 h-5 text-indigo-200 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all" />
+                </div>
               </div>
             </div>
           ))}

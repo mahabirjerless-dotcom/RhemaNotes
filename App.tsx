@@ -4,29 +4,32 @@ import { Button } from './components/Button';
 import { AudioRecorder } from './components/AudioRecorder';
 import { SermonSummary } from './components/SermonSummary';
 import { SermonHistory } from './components/SermonHistory';
+import { Pricing } from './components/Pricing';
+import { useSubscription } from './hooks/useSubscription';
+import { Onboarding } from './components/Onboarding';
 import { processSermonTranscript, processSermonFile, processSermonYoutubeUrl } from './services/geminiService';
-import { getYouTubeTranscript } from './services/youtubeService';
 import { getSermonHistory, saveSermonToHistory, deleteSermonFromHistory } from './services/storageService';
+import { setPageMeta, HOME_META, HISTORY_META } from './services/seoService';
 import { SermonSummaryOutput, SermonHistoryItem, UserNote } from './types';
 import { DEMO_SERMON } from './demoSermon';
 import {
   BookOpen, Mic, Upload, FileAudio, FileVideo,
   FileText, Video as Youtube, Headphones, ArrowRight,
   Sparkles, Clock, CheckCircle2, Loader2, AlertCircle,
+  Cross, Waves
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
-type AppScreen = 'home' | 'listening' | 'summary' | 'upload' | 'history' | 'youtube';
+type AppScreen = 'home' | 'listening' | 'summary' | 'upload' | 'history' | 'youtube' | 'pricing';
 
 // ── Processing overlay ────────────────────────────────────────────────────────
 
 const PROCESSING_STEPS = [
-  'Fetching transcript…',
-  'Cleaning transcript…',
-  'Detecting scripture references…',
-  'Analysing key themes…',
-  'Building study tools…',
-  'Generating quiz & flashcards…',
-  'Almost there…',
+  'Awakening the transcript…',
+  'The Spirit is moving through the Word…',
+  'Illuminating key truths…',
+  'Gathering the scriptures…',
+  'Preparing your spiritual study guide…',
 ];
 
 const ProcessingOverlay: React.FC<{ youtubeStep?: string }> = ({ youtubeStep }) => {
@@ -40,36 +43,53 @@ const ProcessingOverlay: React.FC<{ youtubeStep?: string }> = ({ youtubeStep }) 
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-md">
-      {/* Orbiting dots */}
-      <div className="relative w-20 h-20 mb-8">
-        <div className="absolute inset-0 rounded-full border-2 border-blue-500/20" />
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-indigo-950/90 backdrop-blur-xl">
+      <div className="relative w-32 h-32 mb-12">
+        {/* Divine Halo */}
+        <div className="absolute inset-0 rounded-full border-4 border-amber-200/20 animate-ping" />
+        <div className="absolute inset-2 rounded-full border-2 border-amber-200/40 animate-pulse" />
+        
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-glow">
-            <BookOpen className="w-5 h-5 text-white" />
+          <div className="w-16 h-16 rounded-3xl bg-amber-100 flex items-center justify-center shadow-[0_0_50px_rgba(253,230,138,0.3)]">
+            <BookOpen className="w-8 h-8 text-indigo-900" />
           </div>
         </div>
+        
+        {/* Orbiting lights */}
         {[0, 1, 2].map(i => (
           <div
             key={i}
-            className="orbit absolute top-1/2 left-1/2 w-3 h-3 -mt-1.5 -ml-1.5 rounded-full bg-blue-400"
-            style={{ animationDelay: `${i * 0.66}s`, animationDuration: '2s' }}
+            className="absolute top-1/2 left-1/2 w-4 h-4 -mt-2 -ml-2 rounded-full bg-amber-400 blur-[2px]"
+            style={{ 
+              animation: `orbit 3s linear infinite`,
+              animationDelay: `${i * 1}s`
+            }}
           />
         ))}
       </div>
 
-      <h2 className="text-2xl font-black text-white mb-3 tracking-tight">Processing your sermon</h2>
+      <h2 className="text-3xl font-serif font-black text-amber-50 mb-4 tracking-tight">Processing Sermon</h2>
 
-      <div className="h-6 overflow-hidden">
-        <p key={youtubeStep ?? step} className="text-blue-300 text-sm font-medium animate-fade-up">
-          {youtubeStep ?? PROCESSING_STEPS[step]}
-        </p>
+      <div className="h-8 overflow-hidden text-center">
+        <AnimatePresence mode="wait">
+          <motion.p 
+            key={youtubeStep ?? step}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="text-amber-200/70 text-lg font-serif italic"
+          >
+            {youtubeStep ?? PROCESSING_STEPS[step]}
+          </motion.p>
+        </AnimatePresence>
       </div>
 
-      <div className="mt-8 w-48 h-1 bg-slate-800 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-[2600ms] ease-linear"
-          style={{ width: `${((step + 1) / PROCESSING_STEPS.length) * 100}%` }}
+      <div className="mt-12 w-64 h-1.5 bg-indigo-900/50 rounded-full overflow-hidden border border-indigo-800">
+        <motion.div
+          className="h-full bg-gradient-to-r from-amber-400 to-amber-200 rounded-full shadow-[0_0_15px_rgba(251,191,36,0.5)]"
+          initial={{ width: '0%' }}
+          animate={{ width: `${((step + 1) / PROCESSING_STEPS.length) * 100}%` }}
+          transition={{ duration: 2.6, ease: "linear" }}
         />
       </div>
     </div>
@@ -80,38 +100,50 @@ const ProcessingOverlay: React.FC<{ youtubeStep?: string }> = ({ youtubeStep }) 
 
 interface InputCardProps {
   icon: React.ElementType;
-  iconBg: string;
-  iconColor: string;
   title: string;
   description: string;
   onClick: () => void;
+  accent?: 'gold' | 'indigo' | 'rose';
+  badge?: string;
 }
 
 const InputCard: React.FC<InputCardProps> = ({
-  icon: Icon, iconBg, iconColor, title, description, onClick,
-}) => (
-  <button
-    onClick={onClick}
-    className="
-      group relative flex flex-col items-center text-center
-      bg-white dark:bg-slate-900
-      border border-slate-200 dark:border-slate-800
-      rounded-3xl p-8 shadow-soft
-      hover:shadow-card hover:-translate-y-1 hover:border-blue-200 dark:hover:border-blue-800
-      transition-all duration-200 ease-out
-      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-    "
-  >
-    <div className={`w-14 h-14 rounded-2xl ${iconBg} flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-200`}>
-      <Icon className={`w-7 h-7 ${iconColor}`} />
-    </div>
-    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">{title}</h3>
-    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{description}</p>
-    <div className="mt-5 flex items-center text-xs font-semibold text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">
-      Get started <ArrowRight className="w-3 h-3 ml-1" />
-    </div>
-  </button>
-);
+  icon: Icon, title, description, onClick, accent = 'indigo', badge
+}) => {
+  const themes = {
+    gold: { bg: 'bg-amber-50', icon: 'text-amber-600', hover: 'hover:border-amber-200' },
+    indigo: { bg: 'bg-indigo-50', icon: 'text-indigo-600', hover: 'hover:border-indigo-200' },
+    rose: { bg: 'bg-rose-50', icon: 'text-rose-600', hover: 'hover:border-rose-200' },
+  };
+  const theme = themes[accent];
+
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        group relative flex flex-col items-center text-center
+        sacred-card sacred-card-hover p-8
+        ${theme.hover}
+        focus:outline-none focus:ring-2 focus:ring-amber-500/50
+      `}
+    >
+      {badge && (
+        <div className="absolute top-4 right-4 bg-amber-400 text-amber-950 px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase shadow-sm">
+          {badge}
+        </div>
+      )}
+      <div className={`w-16 h-16 rounded-2xl ${theme.bg} flex items-center justify-center mb-6 group-hover:rotate-6 transition-transform duration-300`}>
+        <Icon className={`w-8 h-8 ${theme.icon}`} />
+      </div>
+      <h3 className="text-lg font-serif font-black text-indigo-950 mb-2">{title}</h3>
+      <p className="text-sm text-indigo-900/60 leading-relaxed font-medium">{description}</p>
+      
+      <div className="mt-6 flex items-center text-xs font-bold text-amber-600 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
+        Begin Journey <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+      </div>
+    </button>
+  );
+};
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 
@@ -125,10 +157,23 @@ function App() {
   const [history, setHistory] = useState<SermonHistoryItem[]>([]);
   const [initialUploadMode, setInitialUploadMode] = useState<'text' | 'file'>('text');
   const [youtubeStep, setYoutubeStep] = useState<string | undefined>();
+  
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  const { tier, isPro } = useSubscription();
 
   useEffect(() => { 
     getSermonHistory().then(setHistory); 
+    
+    // Check if first time user
+    const hasOnboarded = localStorage.getItem('rhemanotes_onboarded');
+    if (!hasOnboarded) setShowOnboarding(true);
   }, []);
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('rhemanotes_onboarded', 'true');
+    setShowOnboarding(false);
+  };
 
   const handleProcessTranscript = useCallback(async (transcript: string, liveNotes?: UserNote[], file?: File) => {
     setIsLoading(true);
@@ -190,13 +235,12 @@ function App() {
     if (selectedHistoryId === id) {
       setCurrentScreen('history');
       setSermonOutput(null);
-      setSelectedHistoryId(undefined);
+      setSelectedHistoryId(null);
     }
   };
 
   const handleLoadDemo = async () => {
     setIsLoading(true);
-    // Simulate a brief loading delay so it feels like it's processing
     await new Promise(resolve => setTimeout(resolve, 800));
     const savedItem = await saveSermonToHistory(DEMO_SERMON);
     setHistory(prev => [savedItem, ...prev]);
@@ -212,11 +256,13 @@ function App() {
     setSelectedHistoryId(null);
     setError(null);
     setIncludeReflection(false);
+    setPageMeta(HOME_META);
   }, []);
 
   const handleNavigate = useCallback((screen: AppScreen) => {
     setCurrentScreen(screen);
-    if (screen === 'home') { setSermonOutput(null); setSelectedHistoryId(null); }
+    if (screen === 'home') { setSermonOutput(null); setSelectedHistoryId(null); setPageMeta(HOME_META); }
+    if (screen === 'history') setPageMeta(HISTORY_META);
   }, []);
 
   const renderScreen = () => {
@@ -224,112 +270,113 @@ function App() {
       /* ── Home ── */
       case 'home':
         return (
-          <div className="flex flex-col items-center space-y-16 py-6 animate-in fade-in duration-500">
+          <div className="flex flex-col items-center space-y-24 py-12 animate-in fade-in duration-700">
             {/* Hero */}
-            <div className="text-center space-y-5 max-w-2xl">
-              <div className="inline-flex items-center space-x-2 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-xs font-bold px-3 py-1.5 rounded-full border border-blue-100 dark:border-blue-900">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>AI-powered sermon study</span>
+            <div className="text-center space-y-8 max-w-3xl">
+              <div className="inline-flex items-center space-x-2 bg-white px-4 py-2 rounded-full shadow-sm border border-indigo-50">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span className="text-xs font-bold text-indigo-900/60 tracking-wider uppercase">AI-Illuminated Sermon Study</span>
               </div>
-              <h1 className="text-5xl md:text-6xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">
-                Every sermon,<br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
-                  deeply understood.
-                </span>
+              
+              <h1 className="text-6xl md:text-8xl font-serif font-black text-indigo-950 tracking-tight leading-[0.9]">
+                Be still and<br />
+                <span className="text-gradient-sacred italic">know the Word.</span>
               </h1>
-              <p className="text-lg text-slate-500 dark:text-slate-400 leading-relaxed">
-                Record live, upload audio, or paste a transcript. SpiritScribe turns any sermon into
-                structured notes, scripture links, quizzes, and a personal Bible reader.
+              
+              <p className="text-xl text-indigo-900/60 leading-relaxed font-serif max-w-xl mx-auto italic">
+                Record, upload, or paste any sermon. RhemaNotes distills the spirit into 
+                scripture links, study tools, and AI-guided reflections.
               </p>
+
+              <div className="flex items-center justify-center gap-4 pt-4">
+                 <button onClick={() => setCurrentScreen('listening')} className="btn-sacred-primary px-8 py-4 text-lg">
+                    <Mic className="w-5 h-5" />
+                    Record Live
+                 </button>
+                 <button onClick={handleLoadDemo} className="btn-sacred-gold px-8 py-4 text-lg">
+                    Explore Demo
+                 </button>
+              </div>
             </div>
 
-            {/* Input method cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full">
-              <InputCard
-                icon={Mic}
-                iconBg="bg-red-50 dark:bg-red-950"
-                iconColor="text-red-500"
-                title="Record Live"
-                description="One tap at church. Add timestamped notes while you listen."
-                onClick={() => setCurrentScreen('listening')}
-              />
-              <InputCard
-                icon={Youtube}
-                iconBg="bg-red-50 dark:bg-red-950"
-                iconColor="text-red-500"
-                title="YouTube Link"
-                description="Paste a link. Title and transcript extracted automatically."
-                onClick={() => setCurrentScreen('youtube')}
-              />
-              <InputCard
-                icon={Headphones}
-                iconBg="bg-blue-50 dark:bg-blue-950"
-                iconColor="text-blue-600"
-                title="Upload Audio"
-                description="Import MP3, M4A, or any audio file from your device."
-                onClick={() => { setInitialUploadMode('file'); setCurrentScreen('upload'); }}
-              />
-              <InputCard
-                icon={FileText}
-                iconBg="bg-green-50 dark:bg-green-950"
-                iconColor="text-green-600"
-                title="Paste Text"
-                description="Drop in raw notes or transcript. Perfect for existing study materials."
-                onClick={() => {
-                  setInitialUploadMode('text');
-                  setCurrentScreen('upload');
-                }}
-              />
-              <InputCard
-                icon={Sparkles}
-                iconBg="bg-purple-50 dark:bg-purple-950"
-                iconColor="text-purple-600"
-                title="Try a Demo"
-                description="Instantly view a pre-processed sermon to see the app's full capabilities."
-                onClick={handleLoadDemo}
-              />
+            {/* Input method grid */}
+            <div className="w-full">
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+                  <InputCard
+                    icon={Mic}
+                    accent="rose"
+                    title="Live Recording"
+                    description="Capture the moment. Add personal notes as the spirit moves you."
+                    onClick={() => setCurrentScreen('listening')}
+                  />
+                  <InputCard
+                    icon={Youtube}
+                    accent="gold"
+                    title="YouTube Library"
+                    description="Paste a sermon link. We'll extract the transcript and insights instantly."
+                    onClick={() => isPro ? setCurrentScreen('youtube') : setCurrentScreen('pricing')}
+                    badge={!isPro ? "PRO" : undefined}
+                  />
+                  <InputCard
+                    icon={FileAudio}
+                    accent="indigo"
+                    title="Audio Upload"
+                    description="Import MP3s or recordings. Perfect for your church's archive."
+                    onClick={() => { setInitialUploadMode('file'); setCurrentScreen('upload'); }}
+                  />
+                  <InputCard
+                    icon={FileText}
+                    accent="indigo"
+                    title="Paste Text"
+                    description="Drop in transcripts or raw notes to build a study guide."
+                    onClick={() => { setInitialUploadMode('text'); setCurrentScreen('upload'); }}
+                  />
+                </div>
             </div>
 
-            {/* Recent sermons */}
+            {/* Recent library section */}
             {history.length > 0 && (
-              <div className="w-full">
-                <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Recent sermons</h2>
+              <div className="w-full space-y-8">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                     <Waves className="w-6 h-6 text-indigo-300" />
+                     <h2 className="text-3xl font-serif font-black text-indigo-950">Recent Journey</h2>
+                  </div>
                   <button
                     onClick={() => setCurrentScreen('history')}
-                    className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline underline-offset-4 flex items-center space-x-1"
+                    className="btn-sacred-ghost"
                   >
-                    <span>View all</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <span>View Library</span>
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {history.slice(0, 3).map(item => (
                     <button
                       key={item.id}
                       onClick={() => handleSelectSermon(item)}
-                      className="
-                        group text-left bg-white dark:bg-slate-900
-                        border border-slate-200 dark:border-slate-800
-                        rounded-2xl p-5 shadow-soft
-                        hover:shadow-card hover:-translate-y-0.5 hover:border-blue-200 dark:hover:border-blue-800
-                        transition-all duration-200
-                      "
+                      className="group text-left sacred-card sacred-card-hover p-6 border-l-4 border-l-amber-200"
                     >
-                      <h4 className="font-bold text-slate-900 dark:text-white mb-1 truncate group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
+                      <div className="flex items-center justify-between mb-4">
+                         <div className="flex items-center text-xs font-bold text-indigo-900/40 uppercase tracking-widest">
+                            <Clock className="w-3.5 h-3.5 mr-1.5" />
+                            <span>{new Date(item.timestamp).toLocaleDateString()}</span>
+                         </div>
+                         <Sparkles className="w-4 h-4 text-amber-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      
+                      <h4 className="text-xl font-serif font-black text-indigo-950 mb-4 line-clamp-2 group-hover:text-indigo-700 transition-colors">
                         {item.summary.title}
                       </h4>
-                      <div className="flex items-center text-xs text-slate-400 mb-3 space-x-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{new Date(item.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                      </div>
-                      <div className="flex space-x-2">
-                        <span className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-black px-2 py-0.5 rounded-full">
-                          {item.summary.scriptures.length} SCRIPTURES
-                        </span>
-                        <span className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-full">
-                          {item.summary.key_points.length} POINTS
-                        </span>
+                      
+                      <div className="flex items-center space-x-3">
+                        <div className="px-2.5 py-1 bg-amber-50 rounded-lg text-[10px] font-black text-amber-700 uppercase">
+                          {item.summary.scriptures.length} Verses
+                        </div>
+                        <div className="px-2.5 py-1 bg-indigo-50 rounded-lg text-[10px] font-black text-indigo-700 uppercase">
+                          {item.summary.key_points.length} Points
+                        </div>
                       </div>
                     </button>
                   ))}
@@ -367,16 +414,12 @@ function App() {
             onProcessUrl={async (url) => {
               setIsLoading(true);
               setError(null);
-              setYoutubeStep('Fetching and Analysing YouTube sermon…');
+              setYoutubeStep('Sourcing and illuminating YouTube sermon…');
               try {
-                // Hand off to Gemini which natively supports scraping YouTube URLs
                 const result = await processSermonYoutubeUrl(url, includeReflection);
-
-                // Ensure there is a title
                 if (!result.title || result.title === 'Sermon Summary') {
-                  result.title = 'YouTube Sermon Summary';
+                  result.title = 'YouTube Sermon Study';
                 }
-
                 const savedItem = await saveSermonToHistory(result);
                 setHistory(prev => [savedItem, ...prev]);
                 setSermonOutput(result);
@@ -418,9 +461,20 @@ function App() {
           />
         ) : (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-            <p className="text-slate-500 mb-4">No sermon summary available.</p>
-            <Button onClick={handleGoHome} variant="secondary">Go Home</Button>
+            <p className="text-indigo-900/40 font-serif text-lg mb-6 italic">No sermon journey available.</p>
+            <button onClick={handleGoHome} className="btn-sacred-primary">Go Home</button>
           </div>
+        );
+
+      case 'pricing':
+        return (
+          <Pricing 
+            onGoHome={handleGoHome} 
+            onSelectPlan={(plan) => {
+              console.log('Selected plan:', plan);
+              // Checkout logic
+            }} 
+          />
         );
 
       default:
@@ -432,19 +486,29 @@ function App() {
     <Layout onNavigate={handleNavigate} currentScreen={currentScreen}>
       {renderScreen()}
 
-      {/* Processing overlay */}
-      {isLoading && <ProcessingOverlay youtubeStep={youtubeStep} />}
+      <AnimatePresence>
+        {isLoading && <ProcessingOverlay youtubeStep={youtubeStep} />}
+      </AnimatePresence>
 
-      {/* Error toast */}
-      {error && !isLoading && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-bottom-4 flex items-center space-x-2">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="ml-2 opacity-70 hover:opacity-100">✕</button>
-        </div>
-      )}
+      <AnimatePresence>
+        {error && !isLoading && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[60] bg-rose-900 text-white text-sm font-bold px-8 py-4 rounded-3xl shadow-2xl flex items-center space-x-3 border-2 border-rose-800"
+          >
+            <AlertCircle className="w-5 h-5 text-rose-300" />
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="ml-4 p-1 hover:bg-rose-800 rounded-full transition-colors">✕</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Onboarding Journey */}
+      {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} />}
     </Layout>
   );
-}
+};
 
 // ── Upload screen ─────────────────────────────────────────────────────────────
 
@@ -477,23 +541,22 @@ const UploadSermon: React.FC<UploadSermonProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center py-8">
-      <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-3xl shadow-card border border-slate-200 dark:border-slate-800 p-8 md:p-12">
-        <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-8 tracking-tight">Upload a sermon</h2>
+      <div className="w-full max-w-3xl sacred-card p-8 md:p-16">
+        <h2 className="text-4xl font-serif font-black text-indigo-950 mb-8 tracking-tight">Upload Sermon</h2>
 
-        {/* Mode toggle */}
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl mb-8 w-full max-w-xs">
+        <div className="flex bg-indigo-50/50 p-1.5 rounded-2xl mb-10 w-full max-w-xs border border-indigo-100">
           {(['text', 'file'] as const).map(m => (
             <button
               key={m}
               onClick={() => setMode(m)}
-              className={`flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-xl text-sm font-black transition-all ${
                 mode === m
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-300 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  ? 'bg-white text-indigo-900 shadow-md'
+                  : 'text-indigo-900/40 hover:text-indigo-900'
               }`}
             >
               {m === 'text' ? <FileText className="w-4 h-4" /> : <FileAudio className="w-4 h-4" />}
-              <span>{m === 'text' ? 'Paste Text' : 'Audio / Video'}</span>
+              <span>{m === 'text' ? 'Paste Text' : 'Media File'}</span>
             </button>
           ))}
         </div>
@@ -501,77 +564,57 @@ const UploadSermon: React.FC<UploadSermonProps> = ({
         {mode === 'text' ? (
           <textarea
             className="
-              w-full h-64 p-5 mb-6
-              bg-slate-50 dark:bg-slate-800
-              border border-slate-200 dark:border-slate-700
-              rounded-2xl resize-none text-slate-800 dark:text-slate-100
-              placeholder:text-slate-400 leading-relaxed
-              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+              w-full h-80 p-6 mb-8
+              bg-white border-2 border-indigo-50
+              rounded-3xl resize-none text-indigo-950 font-serif text-lg
+              placeholder:text-indigo-200 leading-relaxed
+              focus:outline-none focus:ring-4 focus:ring-amber-100 focus:border-amber-200
               transition-all
             "
-            placeholder="Paste your sermon transcript here…"
+            placeholder="Let the words flow here…"
             value={text}
             onChange={e => setText(e.target.value)}
             disabled={isLoading || busy}
           />
         ) : (
-          <>
-            <div
-              onClick={() => fileRef.current?.click()}
-              className="
-                w-full h-52 mb-2 rounded-2xl
-                border-2 border-dashed border-slate-200 dark:border-slate-700
-                flex flex-col items-center justify-center cursor-pointer
-                hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/30
-                transition-all group
-              "
-            >
-              <input ref={fileRef} type="file" className="hidden" accept="audio/*,video/*" onChange={e => e.target.files?.[0] && setFile(e.target.files[0])} />
-              {file ? (
-                <div className="text-center">
-                  <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                    {file.type.startsWith('video') ? <FileVideo className="w-7 h-7 text-blue-600" /> : <FileAudio className="w-7 h-7 text-blue-600" />}
-                  </div>
-                  <p className="font-bold text-slate-800 dark:text-white">{file.name}</p>
-                  <p className="text-sm text-slate-400 mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB · click to change</p>
+          <div
+            onClick={() => fileRef.current?.click()}
+            className="
+              w-full h-64 mb-8 rounded-3xl
+              border-2 border-dashed border-indigo-100
+              flex flex-col items-center justify-center cursor-pointer
+              hover:border-amber-300 hover:bg-amber-50/30
+              transition-all group bg-indigo-50/20
+            "
+          >
+            <input ref={fileRef} type="file" className="hidden" accept="audio/*,video/*" onChange={e => e.target.files?.[0] && setFile(e.target.files[0])} />
+            {file ? (
+              <div className="text-center">
+                <div className="w-20 h-20 bg-amber-100 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  {file.type.startsWith('video') ? <FileVideo className="w-10 h-10 text-amber-700" /> : <FileAudio className="w-10 h-10 text-amber-700" />}
                 </div>
-              ) : (
-                <div className="text-center px-8">
-                  <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                    <Upload className="w-7 h-7 text-slate-400" />
-                  </div>
-                  <p className="font-semibold text-slate-700 dark:text-slate-300">Click to select a file</p>
-                  <p className="text-sm text-slate-400 mt-1">MP3, MP4, WAV, M4A and more</p>
+                <p className="font-serif font-black text-xl text-indigo-950">{file.name}</p>
+                <p className="text-sm text-indigo-900/40 mt-1 font-bold">{(file.size / 1024 / 1024).toFixed(2)} MB · Change file</p>
+              </div>
+            ) : (
+              <div className="text-center px-8">
+                <div className="w-20 h-20 bg-indigo-100/50 rounded-3xl flex items-center justify-center mx-auto mb-4 group-hover:rotate-12 transition-transform">
+                  <Upload className="w-10 h-10 text-indigo-400" />
                 </div>
-              )}
-            </div>
-            {file && file.size > 20 * 1024 * 1024 && (
-              <p className="text-xs text-amber-600 dark:text-amber-500 mb-4 text-center">
-                Warning: Files over 20MB may exceed browser memory limits.
-              </p>
+                <p className="font-serif font-black text-xl text-indigo-950">Bring your sermon file</p>
+                <p className="text-sm text-indigo-900/40 mt-1 font-bold">MP3, MP4, WAV, M4A or Video</p>
+              </div>
             )}
-            {!file || file.size <= 20 * 1024 * 1024 ? <div className="mb-4"></div> : null}
-          </>
-        )}
-
-        {error && (
-          <div className="mb-6 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm rounded-xl p-4">
-            {error}
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Button onClick={handle} disabled={disabled} className="flex-1 py-3">
-            {busy || isLoading ? (
-              <span className="flex items-center space-x-2">
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Processing…</span>
-              </span>
-            ) : 'Process Sermon'}
-          </Button>
-          <Button onClick={onCancel} variant="secondary" disabled={isLoading || busy} className="flex-1 py-3">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button onClick={handle} disabled={disabled} className="btn-sacred-primary flex-1 py-4 text-lg">
+            {busy || isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Begin Illumination'}
+          </button>
+          <button onClick={onCancel} className="btn-sacred-ghost flex-1 py-4 text-lg">
             Cancel
-          </Button>
+          </button>
         </div>
       </div>
     </div>
@@ -591,49 +634,24 @@ const YouTubeProcessor: React.FC<YouTubeProcessorProps> = ({ onProcessUrl, onCan
 
   const handle = () => {
     if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
-      alert('Please enter a valid YouTube URL.');
+      alert('Please enter a valid YouTube link.');
       return;
     }
     onProcessUrl(url);
   };
 
-  // What the two-step pipeline does — shown as a checklist before the user submits
-  const steps = [
-    { label: 'Extract real captions from YouTube',    detail: 'Auto-generated or manual subtitles' },
-    { label: 'Detect every scripture reference',      detail: 'Linked directly to the Bible reader' },
-    { label: 'Generate full study guide',             detail: 'Quiz, flashcards, mind map & chat' },
-  ];
-
   return (
     <div className="flex flex-col items-center justify-center py-8">
-      <div className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl shadow-card border border-slate-200 dark:border-slate-800 p-8 md:p-10 flex flex-col items-center">
-
-        {/* Icon */}
-        <div className="w-16 h-16 bg-red-50 dark:bg-red-950 rounded-2xl flex items-center justify-center mb-5">
-          <Youtube className="w-8 h-8 text-red-500" />
+      <div className="w-full max-w-2xl sacred-card p-12 flex flex-col items-center text-center">
+        <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mb-8 shadow-inner">
+          <Youtube className="w-10 h-10 text-rose-500" />
         </div>
 
-        <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-1 tracking-tight">YouTube Sermon</h2>
-        <p className="text-slate-500 dark:text-slate-400 text-sm text-center mb-7 max-w-sm">
-          Paste any YouTube sermon link. We'll pull the real transcript and turn it into a full study guide.
+        <h2 className="text-4xl font-serif font-black text-indigo-950 mb-3 tracking-tight">YouTube Sermon</h2>
+        <p className="text-indigo-900/40 font-serif text-lg mb-10 italic">
+          Paste the link to a sermon that has moved you. We'll sourcing the transcript and reveal its deeper truths.
         </p>
 
-        {/* What happens checklist */}
-        <div className="w-full bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 mb-7 space-y-3">
-          {steps.map((s, i) => (
-            <div key={i} className="flex items-start space-x-3">
-              <div className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{s.label}</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">{s.detail}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* URL input */}
         <input
           type="url"
           value={url}
@@ -642,38 +660,30 @@ const YouTubeProcessor: React.FC<YouTubeProcessorProps> = ({ onProcessUrl, onCan
           placeholder="https://www.youtube.com/watch?v=…"
           disabled={isLoading}
           className="
-            w-full p-4 mb-2
-            bg-slate-50 dark:bg-slate-800
-            border border-slate-200 dark:border-slate-700
-            rounded-2xl text-slate-800 dark:text-slate-100
-            placeholder:text-slate-400
-            focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500
+            w-full p-6 mb-4
+            bg-white border-2 border-indigo-50
+            rounded-3xl text-indigo-950 font-serif text-lg
+            placeholder:text-indigo-100
+            focus:outline-none focus:ring-4 focus:ring-rose-100 focus:border-rose-200
             disabled:opacity-50 transition-all
           "
         />
 
-        {/* Caveat */}
-        <p className="text-[11px] text-slate-400 dark:text-slate-600 mb-6 text-center">
-          Works with videos that have captions enabled (auto-generated or manual).
-          Private or age-restricted videos are not supported.
+        <p className="text-xs text-indigo-900/30 font-bold mb-10 uppercase tracking-widest">
+           Supports most videos with active captions
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 w-full">
-          <Button
+        <div className="flex flex-col sm:flex-row gap-4 w-full">
+          <button
             onClick={handle}
             disabled={isLoading || !url.trim()}
-            className="flex-1 py-3 bg-red-600 hover:bg-red-700 focus:ring-red-400"
+            className="btn-sacred-primary flex-1 py-4 bg-rose-600 hover:bg-rose-700 shadow-rose-200"
           >
-            {isLoading ? (
-              <span className="flex items-center space-x-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Processing…</span>
-              </span>
-            ) : 'Extract & Analyse'}
-          </Button>
-          <Button onClick={onCancel} variant="secondary" disabled={isLoading} className="flex-1 py-3">
+            {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Process YouTube Sermon'}
+          </button>
+          <button onClick={onCancel} className="btn-sacred-ghost flex-1 py-4">
             Cancel
-          </Button>
+          </button>
         </div>
       </div>
     </div>

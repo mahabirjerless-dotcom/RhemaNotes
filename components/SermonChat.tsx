@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, SermonSummaryOutput } from '../types';
-import { sermonChat } from '../services/geminiService';
+import { streamSermonChat } from '../services/geminiService';
 import { Send, User, MessageCircle, AlertCircle, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
@@ -25,17 +25,31 @@ export const SermonChat: React.FC<SermonChatProps> = ({ summary, onUpdateSummary
     if (!input.trim() || loading) return;
     const userMsg: ChatMessage = { role: 'user', content: input.trim(), timestamp: Date.now() };
     const history = [...messages, userMsg];
-    onUpdateSummary({ ...summary, chat_history: history });
+    
+    // Add the user message and a placeholder for the assistant response
+    const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() };
+    onUpdateSummary({ ...summary, chat_history: [...history, assistantMsg] });
+    
     setInput('');
     setLoading(true);
     setError(null);
+
     try {
-      const reply = await sermonChat(
+      let fullReply = '';
+      const stream = streamSermonChat(
         history.map(m => ({ role: m.role, content: m.content })),
         userMsg.content,
         summary.clean_transcript,
       );
-      onUpdateSummary({ ...summary, chat_history: [...history, { role: 'assistant', content: reply, timestamp: Date.now() }] });
+
+      for await (const chunk of stream) {
+        fullReply += chunk;
+        // Update the last message in the history with the accumulated stream
+        onUpdateSummary({ 
+          ...summary, 
+          chat_history: [...history, { role: 'assistant', content: fullReply, timestamp: Date.now() }] 
+        });
+      }
     } catch (e: any) {
       setError(e.message || 'Something went wrong');
     } finally {
