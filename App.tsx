@@ -362,7 +362,7 @@ function App() {
                     className="btn-sacred-ghost"
                   >
                     <span>View Library</span>
-                    {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                    <ArrowRight className="w-4 h-4" />
                   </button>
 
                   {/* Install App Button */}
